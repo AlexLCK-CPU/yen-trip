@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#c8102e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="旅費換算">
+<meta name="description" content="旅行換算：一行港幣，一行外幣，打任何一行即刻換算。">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="site.webmanifest">
+<title>日本旅費換算</title>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  html{height:100%}
+  body{
+    height:100%;
+    background:#f7f3ec;
+    color:#1c1c1e;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Hiragino Sans","Noto Sans CJK TC","Microsoft JhengHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    -webkit-text-size-adjust:100%;
+  }
+  .app{
+    height:100vh; height:100dvh;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 14px calc(env(safe-area-inset-bottom,0px) + 12px);
+    display:flex; flex-direction:column; gap:0;
+  }
+
+  /* ── 標題 ── */
+  .head{ text-align:center; padding:2px 0 8px; flex:0 0 auto; }
+  .head .zh{ font-size:19px; font-weight:800; letter-spacing:.06em; color:#8d1121; }
+  .head .sub{ font-size:13px; color:#7b7570; margin-top:3px; }
+
+  /* ── 兩張卡 ── */
+  .cards{ flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; min-height:0; }
+
+  .row{
+    background:#fff;
+    border-radius:20px;
+    box-shadow:0 2px 10px rgba(60,40,20,.09), 0 0 0 1px rgba(60,40,20,.06);
+    padding:12px 16px 8px;
+    position:relative;
+    display:flex; flex-direction:column; justify-content:center;
+    transition:box-shadow .15s, transform .15s;
+  }
+  .row.focus{
+    box-shadow:0 4px 18px rgba(200,16,46,.18), 0 0 0 2px #c8102e;
+  }
+  .rowTop{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:34px; }
+  .curWrap{ position:relative; display:inline-flex; align-items:center; gap:5px; }
+  .curName{ font-size:22px; font-weight:700; color:#1c1c1e; }
+  .caret{ font-size:15px; color:#b03a4a; transform:translateY(-1px); }
+  .curWrap select{
+    position:absolute; inset:-6px -22px -6px -10px;
+    opacity:0; width:calc(100% + 32px); height:calc(100% + 12px);
+    font-size:16px; border:0; background:transparent;
+    -webkit-appearance:none; appearance:none;
+  }
+  .curFixed{ font-size:22px; font-weight:700; color:#1c1c1e; }
+  .curFixed .tag{ font-size:12px; font-weight:600; color:#a8a29c; margin-left:6px; letter-spacing:.04em; }
+
+  .num{
+    display:block; width:100%; border:0; background:transparent; outline:none;
+    font-family:inherit;
+    font-size:46px; line-height:1.18; font-weight:800;
+    letter-spacing:-.02em; text-align:right;
+    color:#1c1c1e;
+    font-variant-numeric:tabular-nums;
+    padding:0; margin:0;
+    caret-color:#c8102e;
+  }
+  .num::placeholder{ color:#d9d3cc; }
+  .row.out .num{ color:#8d1121; }
+
+  .swap{ flex:0 0 auto; display:flex; justify-content:center; padding:2px 0 2px; }
+  .swap .ic{
+    font-size:17px; line-height:1; color:#b5737f;
+    background:#f7f3ec; padding:2px 9px; border-radius:20px;
+  }
+
+  /* ── footer ── */
+  .foot{ flex:0 0 auto; padding-top:10px; text-align:center; }
+  .rate{ font-size:16px; font-weight:700; color:#4a4440; font-variant-numeric:tabular-nums; }
+  .rate .eq{ color:#b03a4a; font-weight:600; padding:0 3px; }
+  .stamp{ margin-top:4px; font-size:12.5px; color:#a09a94; display:flex; align-items:center; justify-content:center; gap:8px; min-height:22px; }
+  .stamp .warn{ color:#b03a4a; }
+  .ref{
+    border:0; background:#efe8dd; color:#6b625a;
+    font-family:inherit; font-size:12.5px; font-weight:700;
+    padding:4px 11px; border-radius:20px;
+  }
+  .ref:active{ background:#e2d9cb; }
+  .ref[disabled]{ opacity:.45 }
+
+  .reset{
+    margin-top:10px; width:100%;
+    border:0; border-radius:16px;
+    background:#c8102e; color:#fff;
+    font-family:inherit; font-size:20px; font-weight:800; letter-spacing:.14em;
+    padding:14px 0;
+    box-shadow:0 3px 10px rgba(200,16,46,.26);
+  }
+  .reset:active{ transform:translateY(1px); box-shadow:0 1px 5px rgba(200,16,46,.26); }
+  .reset span{ padding-left:.14em; }
+
+  /* 高螢幕（多數 iPhone）：字同卡都放大，兩張卡貼住一齊 */
+  @media (min-height:760px){
+    .num{ font-size:54px }
+    .row{ padding:16px 18px 12px; border-radius:22px; min-height:172px }
+    .curName,.curFixed{ font-size:24px }
+    .swap{ padding:6px 0 }
+  }
+
+  /* 矮螢幕（iPhone SE 之類）縮細少少 */
+  @media (max-height:700px){
+    .num{ font-size:40px }
+    .head .zh{ font-size:17px }
+    .head .sub{ font-size:12px }
+    .reset{ padding:12px 0; font-size:19px }
+    .rate{ font-size:15px }
+  }
+  @media (max-height:600px){
+    .num{ font-size:34px }
+    .curName,.curFixed{ font-size:19px }
+  }
+
+  /* 闊螢幕：收窄成手機寬度 */
+  @media (min-width:620px){
+    .app{ max-width:460px; margin:0 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div class="zh">旅費換算</div>
+    <div class="sub">打任何一行，另一行自動計</div>
+  </div>
+
+  <div class="cards">
+    <div class="row" id="rowX">
+      <div class="rowTop">
+        <div class="curWrap">
+          <span class="curName" id="curName">日圓</span>
+          <span class="caret">▾</span>
+          <select id="curSel" aria-label="揀貨幣"></select>
+        </div>
+      </div>
+      <input id="inpX" class="num" type="text" inputmode="decimal" autocomplete="off"
+             autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="0" aria-label="外幣金額">
+    </div>
+
+    <div class="swap"><span class="ic">⇅</span></div>
+
+    <div class="row out" id="rowH">
+      <div class="rowTop">
+        <div class="curFixed">港幣<span class="tag">固定</span></div>
+      </div>
+      <input id="inpH" class="num" type="text" inputmode="decimal" autocomplete="off"
+             autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="0" aria-label="港幣金額">
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="rate" id="rateLine">　</div>
+    <div class="stamp"><span id="stampLine">　</span><button class="ref" id="refBtn" type="button">更新</button></div>
+    <button class="reset" id="resetBtn" type="button"><span>重設</span></button>
+  </div>
+</div>
+
+<script>
+/*CALC-START*/
+var ZERO_DEC = { JPY:1, KRW:1, VND:1, IDR:1, TWD:1, CLP:1, ISK:1, HUF:1 };
+
+function decimalsFor(code){
+  return Object.prototype.hasOwnProperty.call(ZERO_DEC, code) ? 0 : 2;
+}
+
+/* 接受 "1,234.5" / "1234" / ".5"，其餘（負數、字母）當無效 */
+function parseAmount(s){
+  if (s === null || s === undefined) return NaN;
+  var t = String(s).replace(/[,\s]/g, '');
+  if (t === '') return NaN;
+  if (!/^\d*\.?\d*$/.test(t)) return NaN;
+  var n = parseFloat(t);
+  return isFinite(n) ? n : NaN;
+}
+
+function roundTo(n, d){
+  if (!isFinite(n)) return NaN;
+  var p = Math.pow(10, d);
+  return Math.round((n + (n >= 0 ? 1 : -1) * 1e-12) * p) / p;
+}
+
+/* rates = { CODE: 每 1 港元可換幾多 CODE }，必須有 HKD:1 */
+function convert(amount, fromCode, toCode, rates){
+  var n = parseAmount(amount);
+  if (!isFinite(n)) return NaN;
+  if (!rates) return NaN;
+  var f = rates[fromCode], t = rates[toCode];
+  if (!(f > 0) || !(t > 0)) return NaN;
+  return n / f * t;
+}
+
+function fmt(n, d){
+  if (!isFinite(n)) return '';
+  var v = roundTo(n, d);
+  var neg = v < 0; v = Math.abs(v);
+  var s = v.toFixed(d).split('.');
+  var ip = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return (neg ? '-' : '') + ip + (s.length > 1 && d > 0 ? '.' + s[1] : '');
+}
+
+/* 1 港元 = ? 外幣 */
+function rateText(rates, code){
+  if (!rates || !(rates[code] > 0)) return '';
+  var v = rates[code];
+  var d = v >= 100 ? 0 : (v >= 1 ? 2 : 4);
+  return fmt(v, d);
+}
+
+function fmtStamp(ts){
+  if (!ts) return '';
+  var d = new Date(ts);
+  var h = d.getHours(), mi = d.getMinutes();
+  var ap = h < 12 ? '上午' : '下午';
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + ap + h12 + ':' + (mi < 10 ? '0' + mi : mi);
+}
+/*CALC-END*/
+
+/* ── 貨幣清單（全部中文，冇英文代號） ── */
+var CURRENCIES = [
+  { code:'JPY', zh:'日圓' },
+  { code:'TWD', zh:'台幣' },
+  { code:'KRW', zh:'韓圜' },
+  { code:'CNY', zh:'人民幣' },
+  { code:'THB', zh:'泰銖' },
+  { code:'SGD', zh:'新加坡元' },
+  { code:'MYR', zh:'馬來西亞令吉' },
+  { code:'VND', zh:'越南盾' },
+  { code:'PHP', zh:'菲律賓披索' },
+  { code:'IDR', zh:'印尼盾' },
+  { code:'USD', zh:'美元' },
+  { code:'EUR', zh:'歐元' },
+  { code:'GBP', zh:'英鎊' },
+  { code:'AUD', zh:'澳元' },
+  { code:'CAD', zh:'加元' },
+  { code:'NZD', zh:'紐西蘭元' },
+  { code:'CHF', zh:'瑞士法郎' }
+];
+
+/* 離線保底：2026-10-26 實際牌價（每 1 港元） */
+var FALLBACK = { HKD:1, JPY:19.9993, TWD:3.92, KRW:177.5, CNY:0.9134, THB:4.17,
+  SGD:0.1665, MYR:0.5385, VND:3308, PHP:7.46, IDR:2072, USD:0.1287,
+  EUR:0.1109, GBP:0.0958, AUD:0.1952, CAD:0.1801, NZD:0.2142, CHF:0.1035 };
+
+var LS_CUR = 'yenTrip.cur';
+var LS_RATE = 'yenTrip.rate';
+
+var S = {
+  cur: 'JPY',
+  rates: null,
+  stampTs: 0,
+  offline: false,
+  lastInput: 'X'
+};
+
+function $(id){ return document.getElementById(id); }
+function store(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+function load(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+
+function curZh(code){
+  for (var i = 0; i < CURRENCIES.length; i++) if (CURRENCIES[i].code === code) return CURRENCIES[i].zh;
+  return code;
+}
+
+/* ── 建立貨幣下拉 ── */
+function buildSelect(){
+  var sel = $('curSel');
+  sel.innerHTML = '';
+  for (var i = 0; i < CURRENCIES.length; i++){
+    var o = document.createElement('option');
+    o.value = CURRENCIES[i].code;
+    o.textContent = CURRENCIES[i].zh;
+    sel.appendChild(o);
+  }
+  sel.value = S.cur;
+}
+
+/* ── 畫面更新 ── */
+function paintRate(){
+  var code = S.cur;
+  var t = rateText(S.rates, code);
+  if (t){
+    $('rateLine').innerHTML = '1 港元<span class="eq">＝</span>' + t + ' ' + curZh(code);
+  } else {
+    $('rateLine').innerHTML = '　';
+  }
+  var st = $('stampLine');
+  if (S.stampTs){
+    st.className = S.offline ? 'warn' : '';
+    st.textContent = (S.offline ? '暫時用上次滙率：' : '滙率日期 ') + fmtStamp(S.stampTs);
+  } else {
+    st.className = 'warn';
+    st.textContent = '未取得滙率';
+  }
+}
+
+/* 由 field 的值算另一邊 */
+function recalc(from){
+  var code = S.cur, dX = decimalsFor(code), dH = 2;
+  if (from === 'X'){
+    var v = convert($('inpX').value, code, 'HKD', S.rates);
+    $('inpH').value = isFinite(v) ? fmt(v, dH) : '';
+  } else {
+    var w = convert($('inpH').value, 'HKD', code, S.rates);
+    $('inpX').value = isFinite(w) ? fmt(w, dX) : '';
+  }
+}
+
+/* 焦點所在的那一行，打字時不加千分位（游標唔會跳） */
+function onInput(which){
+  S.lastInput = which;
+  var el = which === 'X' ? $('inpX') : $('inpH');
+  var other = which === 'X' ? $('inpH') : $('inpX');
+  var raw = el.value;
+  /* 只保留數字與小數點 */
+  var cleaned = raw.replace(/[^\d.]/g, '');
+  var parts = cleaned.split('.');
+  if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('');
+  if (cleaned !== raw) el.value = cleaned;
+  recalc(which);
+  other.setAttribute('data-filled', other.value ? '1' : '0');
+}
+
+function focusRow(which){
+  $('rowX').classList.toggle('focus', which === 'X');
+  $('rowH').classList.toggle('focus', which === 'H');
+}
+
+function setCurrency(code){
+  S.cur = code;
+  $('curName').textContent = curZh(code);
+  store(LS_CUR, code);
+  paintRate();
+  /* 以港幣為準重算外幣：換貨幣唔會丟失你打過嘅金額 */
+  S.lastInput = 'H';
+  recalc('H');
+}
+
+function reset(){
+  $('inpX').value = '';
+  $('inpH').value = '';
+  focusRow('X');
+  $('inpX').focus();
+  paintRate();
+}
+
+/* ── 滙率抓取 ── */
+function applyRates(rates, ts, offline){
+  S.rates = rates;
+  S.stampTs = ts;
+  S.offline = !!offline;
+  paintRate();
+  recalc(S.lastInput);
+}
+
+function cacheRates(rates, ts){
+  try { store(LS_RATE, JSON.stringify({ rates: rates, ts: ts })); } catch(e){}
+}
+
+function readCache(){
+  var raw = load(LS_RATE);
+  if (!raw) return null;
+  try {
+    var o = JSON.parse(raw);
+    if (o && o.rates && o.rates.HKD === 1) return o;
+  } catch(e){}
+  return null;
+}
+
+function fetchRates(){
+  var btn = $('refBtn');
+  btn.disabled = true;
+  $('stampLine').textContent = '更新中…';
+
+  function done(rates, ts){
+    applyRates(rates, ts, false);
+    cacheRates(rates, ts);
+    btn.disabled = false;
+    document.title = '日本旅費換算';
+  }
+  function fail(){
+    btn.disabled = false;
+    var c = readCache();
+    if (c) applyRates(c.rates, c.ts, true);
+    else { applyRates(FALLBACK, Date.now(), true); }
+    document.title = '日本旅費換算';
+  }
+
+  var to = setTimeout(fail, 9000);
+
+  fetch('https://open.er-api.com/v6/latest/HKD', { cache:'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || !d.rates || !(d.rates.JPY > 0)) throw new Error('bad');
+      var rates = {};
+      for (var k in d.rates) if (typeof d.rates[k] === 'number') rates[k] = d.rates[k];
+      rates.HKD = 1;
+      var ts = d.time_last_update_unix ? d.time_last_update_unix * 1000 : Date.now();
+      clearTimeout(to); done(rates, ts);
+    })
+    .catch(function(){
+      return fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/hkd.json', { cache:'no-store' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (!d || !d.hkd || !(d.hkd.jpy > 0)) throw new Error('bad2');
+          var rates = { HKD:1 };
+          for (var k in d.hkd) if (typeof d.hkd[k] === 'number') rates[k.toUpperCase()] = d.hkd[k];
+          rates.HKD = 1;
+          var ts = d.date ? new Date(d.date + 'T00:00:00').getTime() : Date.now();
+          clearTimeout(to); done(rates, ts);
+        });
+    })
+    .catch(function(){ clearTimeout(to); fail(); });
+}
+
+/* ── 啟動 ── */
+(function init(){
+  var saved = load(LS_CUR);
+  for (var i = 0; i < CURRENCIES.length; i++) if (CURRENCIES[i].code === saved) S.cur = saved;
+
+  buildSelect();
+  $('curName').textContent = curZh(S.cur);
+
+  var c = readCache();
+  if (c){ S.rates = c.rates; S.stampTs = c.ts; S.offline = true; }
+  else { S.rates = FALLBACK; S.stampTs = 0; S.offline = true; }
+  paintRate();
+
+  $('inpX').addEventListener('input', function(){ onInput('X'); });
+  $('inpH').addEventListener('input', function(){ onInput('H'); });
+  $('inpX').addEventListener('focus', function(){ focusRow('X'); });
+  $('inpH').addEventListener('focus', function(){ focusRow('H'); });
+  $('inpX').addEventListener('blur', function(){
+    var n = parseAmount($('inpX').value);
+    if (isFinite(n)) $('inpX').value = fmt(n, decimalsFor(S.cur));
+  });
+  $('inpH').addEventListener('blur', function(){
+    var n = parseAmount($('inpH').value);
+    if (isFinite(n)) $('inpH').value = fmt(n, 2);
+  });
+  $('curSel').addEventListener('change', function(){
+    setCurrency(this.value);
+    $('inpX').focus();
+  });
+  $('refBtn').addEventListener('click', function(e){ e.preventDefault(); fetchRates(); });
+  $('resetBtn').addEventListener('click', function(e){ e.preventDefault(); reset(); });
+
+  fetchRates();
+
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+})();
+
+/* ── 自我測試（只有網址帶 selftest 才跑） ── */
+function selftest(){
+  var lines = [], bad = 0;
+  function ok(name, cond, extra){
+    if (!cond) bad++;
+    lines.push((cond ? 'OK ' : 'FAIL ') + name + (extra !== undefined ? ' = ' + extra : ''));
+  }
+  var R = { HKD:1, JPY:20, USD:0.125 };
+  ok('20 港元換日圓', roundTo(convert(20, 'HKD', 'JPY', R), 2) === 400, roundTo(convert(20,'HKD','JPY',R),2));
+  ok('4000 日圓換港元', roundTo(convert(4000, 'JPY', 'HKD', R), 2) === 200, roundTo(convert(4000,'JPY','HKD',R),2));
+  ok('港幣自己換自己', convert(123.45, 'HKD', 'HKD', R) === 123.45);
+  ok('千分位', fmt(1234567.891, 2) === '1,234,567.89', fmt(1234567.891, 2));
+  ok('日圓無小數', fmt(1234.6, 0) === '1,235', fmt(1234.6, 0));
+  ok('解析 1,234.5', parseAmount('1,234.5') === 1234.5);
+  ok('解析 .5', parseAmount('.5') === 0.5);
+  ok('空白當無效', isNaN(parseAmount('')));
+  ok('字母當無效', isNaN(parseAmount('12a')));
+  ok('負數當無效', isNaN(parseAmount('-5')));
+  ok('無滙率當無效', isNaN(convert(10, 'JPY', 'HKD', null)));
+  ok('滙率 1 港元 = 20 日圓', rateText(R, 'JPY') === '20.00', rateText(R, 'JPY'));
+
+  /* 真實互動：喺日圓格打 3500，港幣格要即刻变 175.00 */
+  var ix = $('inpX'), ih = $('inpH');
+  S.cur = 'JPY'; $('curName').textContent = '日圓';
+  S.rates = R; paintRate();
+  ix.value = '3500';
+  onInput('X');
+  ok('打 3500 日圓 → 港幣', ih.value === '175.00', ih.value);
+  ih.value = '100';
+  onInput('H');
+  ok('打 100 港元 → 日圓', ix.value === '2,000', ix.value);
+
+  /* 換貨幣要保留港幣金額，只重算外幣 */
+  S.rates = { HKD:1, JPY:20, USD:0.125, TWD:4 };
+  setCurrency('USD');
+  ok('轉美元後保留港幣', ih.value === '100' && ix.value === '12.50', ix.value + ' / ' + ih.value);
+  ok('轉美元後滙率行', $('rateLine').textContent.indexOf('0.125') > 0, $('rateLine').textContent);
+  setCurrency('JPY');
+
+  reset();
+  ok('重設清空兩行', ix.value === '' && ih.value === '', '[' + ix.value + '|' + ih.value + ']');
+
+  var box = document.createElement('div');
+  box.id = 'oTest';
+  box.style.cssText = 'position:fixed;left:0;bottom:0;font-size:9px;opacity:0;pointer-events:none';
+  box.textContent = lines.join(' | ');
+  document.body.appendChild(box);
+  document.title = (bad ? 'SELFTEST-FAIL' : 'SELFTEST-PASS') + ' · 旅費換算 · ' + lines.length + ' 項 ' + bad + ' 錯';
+}
+if ((location.search + location.hash).indexOf('selftest') >= 0) setTimeout(selftest, 700);
+</script>
+</body>
+</html>
