@@ -2,7 +2,7 @@
    加到主畫面後，就算冇網絡都開得返（會用上次存落嚟嘅滙率）。
    改版時把 VERSION 加一就會更新。
    注意：只快取自己網站嘅檔案，滙率 API 一定唔可以快取，否則永遠唔會更新。 */
-var VERSION = 'yen-trip-v1';
+var VERSION = 'yen-trip-v2';
 var FILES = [
   './index.html',
   './site.webmanifest',

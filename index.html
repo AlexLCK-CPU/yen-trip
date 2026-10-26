@@ -225,6 +225,12 @@ function rateText(rates, code){
   return fmt(v, d);
 }
 
+/* 由其他 app 跳返嚟時，滙率擺幾久就值得再抓 */
+function needRefresh(fetchedAt, now, maxAgeMs){
+  if (!fetchedAt) return false;
+  return (now - fetchedAt) > maxAgeMs;
+}
+
 function fmtStamp(ts){
   if (!ts) return '';
   var d = new Date(ts);
@@ -268,7 +274,9 @@ var S = {
   cur: 'JPY',
   rates: null,
   stampTs: 0,
+  fetchedAt: 0,
   offline: false,
+  fetching: false,
   lastInput: 'X'
 };
 
@@ -368,12 +376,13 @@ function applyRates(rates, ts, offline){
   S.rates = rates;
   S.stampTs = ts;
   S.offline = !!offline;
+  if (!offline) S.fetchedAt = Date.now();
   paintRate();
   recalc(S.lastInput);
 }
 
 function cacheRates(rates, ts){
-  try { store(LS_RATE, JSON.stringify({ rates: rates, ts: ts })); } catch(e){}
+  try { store(LS_RATE, JSON.stringify({ rates: rates, ts: ts, fetchedAt: Date.now() })); } catch(e){}
 }
 
 function readCache(){
@@ -387,6 +396,8 @@ function readCache(){
 }
 
 function fetchRates(){
+  if (S.fetching) return;
+  S.fetching = true;
   var btn = $('refBtn');
   btn.disabled = true;
   $('stampLine').textContent = '更新中…';
@@ -394,10 +405,12 @@ function fetchRates(){
   function done(rates, ts){
     applyRates(rates, ts, false);
     cacheRates(rates, ts);
+    S.fetching = false;
     btn.disabled = false;
     document.title = '日本旅費換算';
   }
   function fail(){
+    S.fetching = false;
     btn.disabled = false;
     var c = readCache();
     if (c) applyRates(c.rates, c.ts, true);
@@ -441,8 +454,8 @@ function fetchRates(){
   $('curName').textContent = curZh(S.cur);
 
   var c = readCache();
-  if (c){ S.rates = c.rates; S.stampTs = c.ts; S.offline = true; }
-  else { S.rates = FALLBACK; S.stampTs = 0; S.offline = true; }
+  if (c){ S.rates = c.rates; S.stampTs = c.ts; S.fetchedAt = c.fetchedAt || 0; S.offline = true; }
+  else { S.rates = FALLBACK; S.stampTs = 0; S.fetchedAt = 0; S.offline = true; }
   paintRate();
 
   $('inpX').addEventListener('input', function(){ onInput('X'); });
@@ -465,6 +478,14 @@ function fetchRates(){
   $('resetBtn').addEventListener('click', function(e){ e.preventDefault(); reset(); });
 
   fetchRates();
+
+  /* 由其他 app 跳返嚟（iOS 唔會重新載入）→ 滙率擺超過 6 個鐘就自動再抓一次 */
+  function maybeRefresh(){
+    if (document.visibilityState && document.visibilityState !== 'visible') return;
+    if (needRefresh(S.fetchedAt, Date.now(), 6 * 3600 * 1000)) fetchRates();
+  }
+  document.addEventListener('visibilitychange', maybeRefresh);
+  window.addEventListener('pageshow', function(e){ if (e.persisted) maybeRefresh(); });
 
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
     navigator.serviceWorker.register('sw.js').catch(function(){});
@@ -509,6 +530,12 @@ function selftest(){
   ok('轉美元後保留港幣', ih.value === '100' && ix.value === '12.50', ix.value + ' / ' + ih.value);
   ok('轉美元後滙率行', $('rateLine').textContent.indexOf('0.125') > 0, $('rateLine').textContent);
   setCurrency('JPY');
+
+  /* 自動更新規則 */
+  var H6 = 6 * 3600 * 1000, NOW = 1793000000000;
+  ok('兩小時前抓過 → 唔用再抓', needRefresh(NOW - 2 * 3600 * 1000, NOW, H6) === false);
+  ok('七小時前抓過 → 要再抓', needRefresh(NOW - 7 * 3600 * 1000, NOW, H6) === true);
+  ok('未抓過 → 唔重複抓', needRefresh(0, NOW, H6) === false);
 
   reset();
   ok('重設清空兩行', ix.value === '' && ih.value === '', '[' + ix.value + '|' + ih.value + ']');
